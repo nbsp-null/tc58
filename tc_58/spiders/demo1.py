@@ -47,6 +47,7 @@ class gettime():
 class Demo1Spider(scrapy.Spider):
 	name = 'demo1'
 	area='jl'
+	j_n=0
 	#allowed_domains = ['http://jl.58.com/']
 	start_urls = ['http://'+area+'.58.com/job.shtml']
 
@@ -61,17 +62,26 @@ class Demo1Spider(scrapy.Spider):
 					continue 
 				t_link='http://'+self.area+".58.com/"+link
 				#yield scrapy.Request(t_link,callback=self.parse_date)
-		yield scrapy.Request('http://'+self.area+".58.com/zpkafei",callback=self.parse_date)
+			yield scrapy.Request('http://'+self.area+".58.com/zpkafei",callback=self.parse_date)
 		
 	def parse_date_url(self,response):
 		item=response.meta['item']
 		item['job_purl']=response.url
 		item['job_rn']=re.sub("\D","","".join(response.xpath('.//div[@class="con"]//div[@class="leftCon"]//div[@class="item_con pos_info"]//div[@class="pos_base_condition"]//span[@class="item_condition pad_left_none"]/text()').extract()))
-		item['job_adr']=response.xpath('.//div[@class="con"]//div[@class="leftCon"]//div[@class="item_con pos_info"]//div[@class="pos-area"]//span[2]/text()').extract()[1]
-		item['job_rl_ar']=response.xpath('.//div[@class="con"]//div[@class="leftCon"]//div[@class="item_con pos_info"]//div[@class="pos-area"]//span[@class="pos_area_item"]//text()').extract()[1]
+		job_adr=response.xpath('.//div[@class="con"]//div[@class="leftCon"]//div[@class="item_con pos_info"]//div[@class="pos-area"]//span[2]/text()').extract()
+		item['job_adr']= "NULL" if len(job_adr)<2  else job_adr[1]
+		job_rl_ar=response.xpath('.//div[@class="con"]//div[@class="leftCon"]//div[@class="item_con pos_info"]//div[@class="pos-area"]//span[@class="pos_area_item"]//text()').extract()
+		item['job_rl_ar']="NULL" if  len(job_rl_ar)<2 else job_rl_ar[1]
+		
 		item['job_jt']=response.xpath('.//div[@class="con"]//div[@class="rightCon"]//div[@class="item_con"]//div[@class="subitem_con company_baseInfo"]//div[@class="com_statistics"]//p[3]//span[1]/text()').extract_first()
 		item['job_cdes']=response.xpath('.//div[@class="con"]//div[@class="leftCon"]//div[@class="item_con"]//div[@class="subitem_con comp_intro"]//div[@class="txt"]//div[@class="comIntro"]//div[@class="intro"]//div[@class="shiji"]//p/text()').extract()
-		item['job_cimdes']= re.sub("tiny","big",re.sub("\/enterprise","http://pic1.58cdn.com.cn/enterprise",re.sub("var picList=|'|-","",response.xpath('.//div[@class="con"]//div[@class="leftCon"]//div[@class="item_con"]//div[@class="subitem_con comp_intro"]//div[@class="photos"]//script/text()').extract_first())))
+		job_ci=response.xpath('.//div[@class="con"]//div[@class="leftCon"]//div[@class="item_con"]//div[@class="subitem_con comp_intro"]//div[@class="photos"]//script/text()')
+		job_cii= not job_ci
+		if not job_ci :
+			item['job_cimdes']= "NULL"
+		else:
+			item['job_cimdes']= re.sub("tiny","big",re.sub("\/enterprise","http://pic1.58cdn.com.cn/enterprise",re.sub("var picList=|'|-","",job_ci.extract_first())))
+		
 		item['job_des']="".join(response.xpath('.//div[@class="con"]//div[@class="leftCon"]//div[@class="item_con"]//div[@class="subitem_con pos_description"]//div[@class="posDes"]//div[@class="des"]/text()').extract())
 		url_c="".join(response.xpath('.//div[@class="con"]//div[@class="rightCon"]//div[@class="item_con"]//div[@class="subitem_con company_baseInfo"]//div[@class="comp_baseInfo_title"]//div[@class="baseInfo_link"]//a/@href').extract())
 		#pdb.set_trace()
@@ -80,15 +90,17 @@ class Demo1Spider(scrapy.Spider):
 		request.meta['item']=item
 		request.meta['url_c']="http://qy.m.58.com/m_detail/"+re.search("(?<=com\/)\d+",url_c).group()
 		#http://qy.58.com/33676822599948/?entinfo=32971740330806_3&PGTID=0d40297b-0603-22ad-69b5-4ad91171f0c4&ClickID=7
-		
 		yield request
-	
+		
 	def parse_company(self,response):
 		item=response.meta['item']
-		item['job_c_sc']=re.sub("[\u4e00-\u9fa5]+","",response.xpath('.//div[@class="compCont"]//div[@class="addB compWrap"]//div[@class="compSum"]//div[@class="detArea"]//dl//dd/text()').extract()[1])
-		item['job_c_st']=re.sub("\\r|\\t|\\n| ","",response.xpath('.//div[@class="compCont"]//div[@class="addB compWrap"]//div[@class="compSum"]//div[@class="detArea"]//dl//dd/text()').extract()[0])
+		job_c_sc=response.xpath('.//div[@class="compCont"]//div[@class="addB compWrap"]//div[@class="compSum"]//div[@class="detArea"]//dl//dd/text()').extract()
+		item['job_c_sc']="NULL" if len(job_c_sc)<2  else re.sub("[\u4e00-\u9fa5]+","",job_c_sc[1])
+		job_c_st=response.xpath('.//div[@class="compCont"]//div[@class="addB compWrap"]//div[@class="compSum"]//div[@class="detArea"]//dl//dd/text()').extract()
+		item['job_c_st']=re.sub("\\r|\\t|\\n| ","",job_c_st[0])if len(job_c_st)>=1 else "null"
 		item['job_c_ty']=response.xpath('.//div[@class="compCont"]//div[@class="addB compWrap"]//div[@class="compSum"]//div[@class="detArea"]//dl//dd/a/text()').extract()
-		item['job_c_add']=response.xpath('.//div[@class="compCont"]//div[@class="addB compWrap"]//div[@class="compSum"]//div[@class="detArea"]//dl//dd/text()').extract()[4]
+		job_c_add=response.xpath('.//div[@class="compCont"]//div[@class="addB compWrap"]//div[@class="compSum"]//div[@class="detArea"]//dl//dd/text()').extract()
+		item['job_c_add']="null" if  len(job_c_add)<2 else job_c_add[len(job_c_add)-1]
 		item['job_c_tel']=" ".join(response.xpath('.//div[@class="compCont"]//div[@class="addB compTouch"]//dl//dd[@class="mobMsg"]//p[@class="marB"]//span/text()').extract())
 		item['job_c_eml']=response.xpath('.//div[@class="compCont"]//div[@class="addB compTouch"]//dl//dd[2]/text()').extract()
 		yield item
@@ -108,6 +120,7 @@ class Demo1Spider(scrapy.Spider):
 		
 		#print(date_o.extract())
 		for date_oc in date_o:
+			self.j_n=self.j_n+1
 			items=Tc58Item()
 			job_ty=date_oc.xpath('.//p[@class="job_require"]//span[@class="cate"]/text()').extract()
 			job_url=date_oc.xpath('.//div[@class="job_name clearfix"]//a/@href').extract()
@@ -139,6 +152,7 @@ class Demo1Spider(scrapy.Spider):
 			items['job_d'] = job_d
 			items['job_ty'] = job_ty
 			#print(job_n,job_ar,job_c,job_we,job_ed,job_ar,job_st,job_d)
+			print("爬取数:"+str(self.j_n)+"名称:"+"".join(job_n))
 			if len(job_url):
 				if job_url[0]!=None:
 					request= scrapy.Request(job_url[0],callback=self.parse_date_url)

@@ -5,14 +5,18 @@
 # Don't forget to add your pipeline to the ITEM_PIPELINES setting
 # See: https://doc.scrapy.org/en/latest/topics/item-pipeline.html
 import pymysql
-
+import re
 class Tc58Pipeline(object):
-    def process_item(self, item, spider):
+	s_n=0
+	s_s_n=0
+	def process_item(self, item, spider):
+		self.s_s_n=self.s_s_n+1
+		print("当前次数",str(self.s_s_n))
 		if item['job_s']!=None:
 			if item['job_s']=="面议":
 				job_s=0
 			else:
-				s_1=item['job_s'].split("-")
+				s_1=item['job_s'][0].split("-")
 				if	len(s_1)>1 and int(s_1[0])>0 and int(s_1[1])>0:
 					job_s=(int(s_1[0])+int(s_1[1]))/2
 				else:
@@ -23,36 +27,61 @@ class Tc58Pipeline(object):
 			elif item['job_we']=="1年以下":
 				job_we=1
 			else:
-				item['job_we']=re.sub('年',"",item['job_we'])
-				s_2=item['job_we'].split("-")
+				item['job_we'][0]=re.sub('年',"",item['job_we'][0])
+				s_2=item['job_we'][0].split("-")
 				if	len(s_2)>1 and int(s_2[0])>0 and int(s_2[1])>0:
 					job_we=(int(s_2[0])+int(s_2[1]))/2
 				else:
 					job_we=99
-		job_ed={"中专":1,"技校":2,"大专":3,"本科":4,"高中":5,"硕士":6,"博士":7,}.get(item['job_ed'],0)
-		db = pymysql.connect("localhost","root","qq123456","tc_58" )
+		job_ed={"中专":1,"技校":2,"大专":3,"本科":4,"高中":5,"硕士":6,"博士":7,}.get(item['job_ed'][0],0)
+		db = pymysql.connect("localhost","root","qq123456","tc_58_c",use_unicode=True, charset="utf8")
 		cursor = db.cursor()
-		sql = "Insert into job values (%d ,'%s',%d,'%s','%s','%s',%d,%d,%d,'%s','%s','%s',%d,%d,'%s',%d)" % (
-                    0, item['job_n'], job_s, item['job_ar'],item['job_rl_ar'],item["job_adr"],int(item["job_st"]),job_ed,job_we,item["job_ty"],item["job_d"],item["job_purl"],int(item['job_ll']),int(item['job_rn']),item["job_des"],0)
-		sql_c="Insert into company values (%d ,'%s','%s','%s','%s','%s',%d,'%s','%s','%s','%s')" % (
-                    0, item['job_cdes'], item['job_cimdes'],item['job_c_add'],item["job_c_tel"],item["job_c_eml"],int(item["job_jt"]),item["job_c_ty"],item["job_c_sc"],item['job_c_st'],item['job_c'])
+		s_s_n=0
+		for  it in item:
+			#print(type(item[it]))
+			if isinstance(item[it], list):
+				item[it]="".join(item[it])
+		job_ll=int(item['job_ll'])
+		if item['job_rn']!='':
+			job_rn=int(item['job_rn'])
+		else:
+			job_rn=999
+		if cursor.execute("select index1 from company where c_n='"+item["job_c"]+"'"):
+			data = cursor.fetchone()
+			if  data!=None:
+				for data_c in data:
+					if isinstance(data_c,int):
+						c_index=data_c
+			else:
+				c_index=self.s_s_n
+			
+			
+		else:
+			c_index=self.s_s_n
+			sql_c="Insert into company values (%d ,\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",%d,\"%s\",\"%s\",\"%s\",\"%s\")" % (c_index, item["job_cdes"], item["job_cimdes"],item["job_c_add"],item["job_c_tel"],item["job_c_eml"],int(item["job_jt"]),item["job_c_ty"],item["job_c_sc"],item["job_c_st"],item["job_c"])
+			cursor.execute(sql_c)
+		item["job_n"]=item["job_ar"]+"|"+item["job_n"]
+		sql = "Insert into job values (%d ,\"%s\",%d,\"%s\",\"%s\",\"%s\",%d,%d,%d,\"%s\",\"%s\",\"%s\",%d,%d,\"%s\",%d)" % (0, item["job_n"], job_s, item["job_ar"],item["job_rl_ar"],item["job_adr"],int(item["job_st"]),job_ed,job_we,item["job_ty"],item["job_d"],item["job_purl"],job_ll,job_rn,item["job_des"],c_index)
+		
+		self.s_n=self.s_n+1
 		try:
 		   # 执行sql语句
-		   print(sql)
-		    print(sql_c)
-		   cursor.execute(sql)
-		   cursor.execute(sql_c)
+			
+			cursor.execute(sql)
+			
 		   # 提交到数据库执行
-		   db.commit()
+			db.commit()
+			print("成功:"+str(self.s_n))
 		except:
 		   # 如果发生错误则回滚
 		   
-		   db.rollback()
-		 
+			db.rollback()
+			print("失败:"+str(self.s_n))
+			print(sql)
 		# 关闭数据库连接
 		db.close()
 		#print(item)
-        return item
+		return item
 		
 		# SELECT `company`.`index`,
     # `company`.`c_des`,
