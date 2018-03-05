@@ -61,8 +61,8 @@ class Demo1Spider(scrapy.Spider):
 					break_l=break_l+1
 					continue 
 				t_link='http://'+self.area+".58.com/"+link
-				#yield scrapy.Request(t_link,callback=self.parse_date)
-			yield scrapy.Request('http://'+self.area+".58.com/zpkafei",callback=self.parse_date)
+				yield scrapy.Request(t_link,callback=self.parse_date)
+			#yield scrapy.Request('http://'+self.area+".58.com/zpkafei",callback=self.parse_date)
 		
 	def parse_date_url(self,response):
 		item=response.meta['item']
